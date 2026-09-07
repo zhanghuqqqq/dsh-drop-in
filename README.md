@@ -130,6 +130,7 @@ dsh plugin add $dir --profile <你的profile>
 | 拖网页图片 toast 报 403 | 目标站防盗链（Referer 校验），插件无法伪造浏览器会话；可把图片右键另存后拖本地文件 |
 | 上传 404 `Session workspace not found` | sessionId 校验失败（多开会话切换瞬间旧页面仍挂着），重发一次消息即可 |
 | 长文本没落盘 | 小于 5000 字符的策略是直接插入输入框，不是 bug |
+| 拖非文件夹文件到工作区面板时，同时弹出壳层「无效/invalid」提示和本插件的上传 toast | 已知低危残留：本插件在 document capture 阶段用 `stopPropagation()` 阻断接管类 drop 传给 composer 层原生附件处理器，但该机制无法拦截**同节点同相位更早注册**的其他 document capture 监听器（如壳层对工作区面板的校验）。两者并行工作：壳层提示可忽略，插件上传与引用插入正常完成，功能不受影响 |
 
 **日志**：host 端报错都走 HTTP 响应体（`{error:{code,message}}`），client 端以 toast 展示；DSH Desktop 日志在 `%DSH_HOME%\logs\`。
 
