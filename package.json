@@ -1,6 +1,6 @@
 {
   "name": "dsh-drop-in",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drag & drop anything into the DSH composer: local files upload to <workspace>/.dropped/<sessionId>/ and insert absolute-path references; web images / URLs download host-side then reference; plain text inserts into the composer (oversized text becomes a file).",
   "author": "local",
   "type": "module",
