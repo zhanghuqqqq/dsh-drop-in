@@ -1,0 +1,35 @@
+{
+  "name": "dsh-drop-in",
+  "version": "0.1.0",
+  "description": "Drag & drop anything into the DSH composer: local files upload to <workspace>/.dropped/<sessionId>/ and insert absolute-path references; web images / URLs download host-side then reference; plain text inserts into the composer (oversized text becomes a file).",
+  "author": "local",
+  "type": "module",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
