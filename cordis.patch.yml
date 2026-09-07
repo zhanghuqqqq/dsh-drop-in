@@ -1,0 +1,7 @@
+# dsh-drop-in bundle patch: mount the drag & drop input plugin.
+# Host half: upload / fetch-url / save-text routes + per-session landing dir.
+# Client half: global dragover/drop interception + overlay + composer insert.
+- insert:
+    - id: drop-in
+      name: 'dsh-drop-in'
+      config: {}
