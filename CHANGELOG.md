@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-09-07
+
+### Fixed
+
+- **DSH's native "图片拖动到此处即可添加" (images-here) overlay stayed on screen forever after dropping a takeover-kind item (e.g. a spreadsheet).** Root cause: that overlay is driven by `ComposerAttachments`' document-**bubble** `dragenter` listener incrementing a depth counter, and its own bubble-phase `drop` handler is the only thing that resets it. v0.1.1's capture-phase `stopPropagation()` on drop correctly blocked that handler — which removed the "images only" toast but also removed the counter reset, leaving the overlay stuck. Fix: the plugin now stops propagation at the **capture** phase for `dragenter` and `dragover` as well, so for takeover kinds the native attachment pipeline never sees the drag at all — its overlay never shows and its counter never increments. Passthrough kinds (pure local images, folders) still reach the native pipeline untouched.
+
+### Added
+
+- `tests/overlay-propagation.sim.mjs`: a DOM-propagation simulation proving the capture-phase blinding (takeover drags never reach the native bubble listeners; passthrough lifecycles stay intact).
+
 ## [0.1.1] - 2026-09-07
 
 ### Fixed
