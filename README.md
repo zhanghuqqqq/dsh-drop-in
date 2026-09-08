@@ -50,7 +50,7 @@ dsh plugin add $dir --profile <你的profile>
 |---|---|---|
 | 本地文件（任意类型，≤20 个） | 流式上传到 `<工作区>/.dropped/<sessionId>/` | 消息追加 `[附件: 名](绝对路径)` |
 | 纯本地图片 | 放行给原生视觉附件通道（多模态直出） | 原生图片附件 |
-| 文件夹 | 放行给原生「收养为工作区」 | 原生行为 |
+| 文件夹 | 通过桌面桥解析磁盘绝对路径（零拷贝） | `[文件夹: 名](绝对路径)` — agent 直接 fs 遍历原位置 |
 | 网页图片（从浏览器拖） | host 端流式下载（跟随重定向、自动重试） | `[网页图片: 名](绝对路径)` |
 | 链接 / 地址栏 URL | 下载目标资源；失败自动把链接插入输入框兜底 | `[网页资源: 名](绝对路径)` |
 | 选中的文字 | ≤5000 字符插入输入框；更长存为 `.md` 文件 | 插入的文本或 `[拖入文字: 名](绝对路径)` |
@@ -68,7 +68,8 @@ dsh plugin add $dir --profile <你的profile>
 │   ├ 文件 → PUT 上传         │                               └──────────────────────────┘
 │   ├ URL → POST /fetch-url   │ ────────────────────────────► Node fetch 流式下载
 │   ├ 文字 → setDraft 插入    │                               （重定向/重试/2GiB 上限）
-│   └ 纯图片/文件夹 → 放行原生 │
+│   ├ 文件夹 → 桥解析路径引用  │
+│   └ 纯本地图片 → 放行原生   │
 └────────────────────────────┘
         │ inputActions.setDraft("[附件: x](绝对路径)")
         ▼
@@ -80,7 +81,7 @@ dsh plugin add $dir --profile <你的profile>
 1. **文件身份 = 文件名**。目录按会话隔离（`.dropped/<sessionId>/`），重名自动 `_1/_2` 后缀，无数据库、无索引，文件系统即注册表。
 2. **引用即绝对路径**。client 插入的是 markdown 链接，括号内就是磁盘绝对路径，模型零间接。
 3. **system prompt 注入约定**。host 端检测到本会话 `.dropped/` 目录非空时，自动向 system prompt 注入一段说明，告诉模型「消息里 `[附件: …](路径)` 即拖放文件，直接读括号内路径」。
-4. **与原生行为协调**（passthrough 规则）：`dataTransfer.items` 里检测到目录 → 放行给原生工作区收养；files 全部为 `image/*` → 放行给原生视觉附件；其余才由本插件接管。
+4. **与原生行为协调**（passthrough 规则）：`dt.files` 全部为 `image/*` 且无文件夹 → 放行给原生视觉附件；其余（含文件夹）一律由本插件接管——文件夹通过桌面桥 `__DSH_DESKTOP_FILE_PATH__` 解析绝对路径后直接引用，不落入原生图片管线（避免其「仅支持 PNG/JPG/WebP/GIF」拒绝）。
 5. **client 只通过官方 slot 契约触碰输入框**：slot `conversation.input.left` 的 props 提供 `sessionId`、`inputActions.setDraft`、`useInput`；React 通过 DSH 的 `__ModuleLoader__` require 同一实例，无双 React 问题。
 6. **兜底防导航**：未被处理的文件 drop 一律 `preventDefault()`，防止浏览器直接打开文件导致页面跳走。
 
@@ -88,11 +89,11 @@ dsh plugin add $dir --profile <你的profile>
 
 优先级从上到下（drop 时判定，dragover 时用同一逻辑的粗粒度版本驱动覆盖层提示）：
 
-1. `dt.files` 非空：
-   - 任一 `item.webkitGetAsEntry().isDirectory` → **passthrough**（原生工作区）
-   - 所有 file.type 均以 `image/` 开头 → **passthrough**（原生视觉附件）
-   - 文件数 > 20 → 拒绝并 toast
-   - 否则 → **files**（逐个上传后合并引用插入）
+1. `dt.files` 非空（drop 时同步解析，`DataTransferItemList` 仅在 drop handler 内有效）：
+    - 目录条目（`webkitGetAsEntry().isDirectory`）→ 经桌面桥解析绝对路径，收集为 **folders** 引用
+    - 剩余普通文件全部为 `image/*` 且无目录 → **passthrough**（原生视觉附件）
+    - 普通文件数 > 20 → 拒绝并 toast（文件夹引用不受此限）
+    - 否则 → **takeover**（文件逐个上传 + 文件夹路径引用，合并插入）
 2. `dt.files` 为空：
    - `text/html` 含 `<img src="data:...">` → 转成 Blob 走上传
    - `text/html` 含 `<img src="http(s)://...">` 或 `text/uri-list` 首条为 http(s) 且 `text/plain` 等于它 → **url**（host 下载）
