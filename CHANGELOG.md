@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-09-07
+
+### Changed
+
+- **Folders are now takeover content instead of passthrough.** Dropping a folder onto the composer used to fall through to DSH's native image pipeline, which rejected it with "仅支持 PNG、JPG、WebP、GIF 格式的图片 / Only PNG, JPG, WebP, and GIF images are supported" and did nothing. The plugin now resolves the folder's absolute disk path through the DSH Desktop bridge (`__DSH_DESKTOP_FILE_PATH__`) and inserts a `[文件夹: name](absolutePath)` reference — the agent walks the original folder in place with fs tools. Zero copying, no size limits, instant.
+- Mixed drops (folder + files) are handled in one pass: folder references plus streamed file uploads land in the same message.
+- The system-prompt injection now explains the `[文件夹: …](path)` reference form.
+
+### Fixed
+
+- Dragging a folder onto the composer no longer triggers the native "images only" rejection toast; the native attachment pipeline is fully blinded for folder drags (capture-phase dragenter/dragover/drop all stop propagation).
+
 ## [0.1.2] - 2026-09-07
 
 ### Fixed
