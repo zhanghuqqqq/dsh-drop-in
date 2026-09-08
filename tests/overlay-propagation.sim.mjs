@@ -123,4 +123,57 @@ e = mk(['text/plain'], { data: { 'text/plain': 'some dragged text' } })
 dispatch('dragenter', e); dispatch('dragover', e); dispatch('drop', e)
 test('CASE4 text drag: no native interaction, no crash', nativeDropCalls === 1) // unchanged from CASE2
 
+// ---- folder scenarios (v0.1.3): folders are takeover, resolved via the Desktop bridge ----
+const inserted = []
+controller.ref.current = {
+  sessionId: 'session-test',
+  inputActions: { setDraft: (t) => inserted.push(t) },
+  draft: '',
+}
+const bridgeCalls = []
+window.__DSH_DESKTOP_FILE_PATH__ = { getPathForFile: (file) => { bridgeCalls.push(file?.name); return `C:\\Users\\XTX\\${file?.name ?? 'folder'}` } }
+
+// CASE 5: single folder (takeover now) — native stays blind, reference inserted with real path
+e = mk(['Files'], {
+  files: [{ name: 'MyFolder', type: '', size: 0 }],
+  items: [{ kind: 'file', type: '', webkitGetAsEntry: () => ({ isDirectory: true, name: 'MyFolder' }), getAsFile: () => ({ name: 'MyFolder' }) }],
+})
+dispatch('dragenter', e); dispatch('dragover', e); dispatch('drop', e)
+test('CASE5 folder: native never sees it (no images-only toast path)', nativeDropCalls === 1)
+test('CASE5 folder: disk-path reference inserted via bridge', inserted.length === 1 && inserted[0].includes('[文件夹: MyFolder](C:\\Users\\XTX\\MyFolder)') && bridgeCalls.includes('MyFolder'))
+
+// CASE 6: folder + file mixed — folder reference AND file upload both fire
+let uploads = 0
+const origFetch = globalThis.fetch
+globalThis.fetch = async (url) => {
+  if (String(url).includes('/upload')) { uploads += 1; return { ok: true, json: async () => ({ name: 'doc.pdf', absolutePath: 'X:\\.dropped\\s\\doc.pdf', size: 1 }) } }
+  throw new Error('unexpected fetch ' + url)
+}
+e = mk(['Files'], {
+  files: [
+    { name: 'MyFolder', type: '', size: 0 },
+    { name: 'doc.pdf', type: 'application/pdf', size: 512 },
+  ],
+  items: [
+    { kind: 'file', type: '', webkitGetAsEntry: () => ({ isDirectory: true, name: 'MyFolder' }), getAsFile: () => ({ name: 'MyFolder' }) },
+    { kind: 'file', type: 'application/pdf' },
+  ],
+})
+const countBefore = inserted.length
+dispatch('dragenter', e); dispatch('dragover', e); dispatch('drop', e)
+await new Promise((r) => setTimeout(r, 10))
+test('CASE6 mixed: folder ref inserted + file uploaded', inserted.length === countBefore + 2 && inserted[countBefore].includes('[文件夹: MyFolder]') && inserted[countBefore + 1].includes('[附件: doc.pdf]') && uploads === 1)
+
+// CASE 7: bridge missing — folder skipped gracefully with error toast, no crash
+delete window.__DSH_DESKTOP_FILE_PATH__
+e = mk(['Files'], {
+  files: [{ name: 'Orphan', type: '', size: 0 }],
+  items: [{ kind: 'file', type: '', webkitGetAsEntry: () => ({ isDirectory: true, name: 'Orphan' }), getAsFile: () => ({ name: 'Orphan' }) }],
+})
+dispatch('dragenter', e); dispatch('dragover', e); dispatch('drop', e)
+test('CASE7 missing bridge: graceful skip, no crash', inserted.length === countBefore + 2) // unchanged (folder skipped)
+
+globalThis.fetch = origFetch
+controller.ref.current = null
+
 console.log(results.join('\n'))
